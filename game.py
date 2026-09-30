@@ -9,17 +9,19 @@ AMMO_PER_BATTERY = 10
 
 def explosion_color(progress):
     """Return an (r, g, b) colour for an explosion (progress 0..1 of its life), or None for the default."""
-    pass
+    progress = max(0.0, min(1.0, progress))
+    heat = 1.0 - abs(2.0 * progress - 1.0)
+    return (255, int(70 + 185 * heat), int(30 + 210 * heat))
 
 
 def on_city_destroyed(city):
     """Called when a city is hit; add screen shake, sounds, or a game-over warning here."""
-    pass
+    city.warning_until = pygame.time.get_ticks() + 2500
 
 
 def city_repair_threshold():
     """Return a score value at which a destroyed city is rebuilt, or None to disable city repair."""
-    pass
+    return 2000
 
 
 class Battery:
@@ -102,7 +104,8 @@ class Game:
             battery.alive, battery.ammo = True, AMMO_PER_BATTERY
 
     def nearest_battery(self, target):
-        return min(self.batteries, key=lambda b: b.pos.distance_squared_to(target))
+        available = [battery for battery in self.batteries if battery.alive and battery.ammo > 0]
+        return min(available, key=lambda b: b.pos.distance_squared_to(target), default=None)
 
     def launch(self, target):
         target = pygame.Vector2(target)
@@ -191,6 +194,9 @@ class Game:
             pygame.draw.circle(screen, color, explosion.pos, max(1, int(explosion.radius)))
         hud = self.font.render(f"Score {self.score}   Wave {self.wave}   Click to fire   R = reset", True, (240, 240, 240))
         screen.blit(hud, (10, 8))
+        if any(getattr(city, "warning_until", 0) > pygame.time.get_ticks() for city in self.cities):
+            warning = self.font.render("CITY DESTROYED!", True, (255, 100, 80))
+            screen.blit(warning, warning.get_rect(center=(WIDTH // 2, 42)))
         if self.state == "lose":
             label = self.font.render("ALL CITIES LOST - Press R", True, (255, 255, 120))
             screen.blit(label, label.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
